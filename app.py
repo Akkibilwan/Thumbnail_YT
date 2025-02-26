@@ -9,14 +9,24 @@ from googleapiclient.errors import HttpError
 import isodate
 
 # -----------------------
-# SQLite Caching Functions
+# SQLite Functions: Caching & Sessions Logging
 # -----------------------
 def init_db():
     conn = sqlite3.connect("cache.db")
     c = conn.cursor()
+    # Table for caching API responses
     c.execute('''
         CREATE TABLE IF NOT EXISTS cache (
             key TEXT PRIMARY KEY,
+            data TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    # Table for logging user search sessions
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key TEXT,
             data TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -38,6 +48,14 @@ def set_cache(key, data):
     conn = sqlite3.connect("cache.db")
     c = conn.cursor()
     c.execute("REPLACE INTO cache (key, data) VALUES (?, ?)", (key, json.dumps(data)))
+    conn.commit()
+    conn.close()
+
+def log_session(key, data):
+    """Log the search session into the sessions table."""
+    conn = sqlite3.connect("cache.db")
+    c = conn.cursor()
+    c.execute("INSERT INTO sessions (key, data) VALUES (?, ?)", (key, json.dumps(data)))
     conn.commit()
     conn.close()
 
@@ -77,7 +95,6 @@ def classify_videos(videos):
 # -----------------------
 def youtube_search(query, published_after=None, finance_channels=None):
     youtube = build('youtube', 'v3', developerKey=st.secrets["YOUTUBE_API_KEY"])
-    # If finance_channels is provided, restrict search to those channels.
     if finance_channels:
         results = []
         for channel_id in finance_channels:
@@ -133,7 +150,6 @@ def analyze_thumbnail(thumbnail_url):
     try:
         vision_response = requests.post(vision_api_url, json=payload, headers=headers)
         vision_data = vision_response.json()
-        # Assume vision_data contains a 'description' field
         thumbnail_description = vision_data.get("description", "No description available.")
     except Exception:
         thumbnail_description = "Error analyzing thumbnail."
@@ -162,7 +178,7 @@ def main():
     st.set_page_config(layout="wide")
     init_db()
 
-    # Use session_state to track which page the user is on and store results
+    # Track which page the user is on using session state
     if "page" not in st.session_state:
         st.session_state.page = "search"
     if "results" not in st.session_state:
@@ -184,7 +200,7 @@ def show_search_page():
     finance_channels = None
     if search_type == "Finance Niche Search":
         finance_filter = st.selectbox("Select Finance Filter", options=["India", "USA", "Both"])
-        # Integrated JSON data for finance channels
+        # Integrated finance JSON data
         finance_data = {
             "finance": {
                 "USA": {
@@ -215,7 +231,7 @@ def show_search_page():
                 }
             }
         }
-        # Extract the finance channels using the provided JSON structure.
+        # Extract finance channels from the hard-coded JSON
         finance_data = finance_data["finance"]
         if finance_filter == "India":
             finance_channels = list(finance_data.get("India", {}).values())
@@ -223,6 +239,8 @@ def show_search_page():
             finance_channels = list(finance_data.get("USA", {}).values())
         else:
             finance_channels = list(finance_data.get("India", {}).values()) + list(finance_data.get("USA", {}).values())
+        # Filter out invalid channel IDs (assuming valid ones start with "UC")
+        finance_channels = [cid for cid in finance_channels if cid.startswith("UC")]
 
     keyword = st.text_input("Enter Keywords or YouTube URL")
 
@@ -247,7 +265,7 @@ def show_search_page():
     sort_option = st.selectbox("Sort By", options=["Views", "Outlier Score"])
 
     if st.button("Search"):
-        # Create a cache key from all parameters
+        # Create a unique cache key from search parameters
         cache_key = f"{search_type}_{finance_channels}_{keyword}_{time_filter_option}_{sort_option}"
         cached_data = get_cache(cache_key)
         if cached_data:
@@ -258,16 +276,16 @@ def show_search_page():
                 st.write("No results found.")
                 return
 
-            # Get video and channel IDs from search results
+            # Extract video and channel IDs from search results
             video_ids = [item["id"]["videoId"] for item in results if "videoId" in item["id"]]
             channel_ids = list(set([item["snippet"]["channelId"] for item in results]))
             
-            # Batch API calls for video and channel details
+            # Batch API calls for details
             video_details = get_video_details(video_ids)
             channel_details = get_channel_details(channel_ids)
             channel_stats = {channel["id"]: channel["statistics"] for channel in channel_details}
             
-            # Merge details and calculate outlier score for each video
+            # Merge details and calculate outlier score
             processed_videos = []
             for video in video_details:
                 snippet = video.get("snippet", {})
@@ -284,7 +302,7 @@ def show_search_page():
             # Separate videos into regular and shorts
             regular_videos, shorts = classify_videos(processed_videos)
             
-            # Sorting based on selection
+            # Sort the videos based on user selection
             if sort_option == "Views":
                 regular_videos.sort(key=lambda x: int(x.get("statistics", {}).get("viewCount", 0)), reverse=True)
                 shorts.sort(key=lambda x: int(x.get("statistics", {}).get("viewCount", 0)), reverse=True)
@@ -294,14 +312,15 @@ def show_search_page():
             
             st.session_state.results = {"regular": regular_videos, "shorts": shorts}
             set_cache(cache_key, st.session_state.results)
+            log_session(cache_key, st.session_state.results)
         
-        # Display search results
+        # Display the search results
         display_results(st.session_state.results)
 
 def display_results(results):
     st.subheader("Regular Videos")
     if results.get("regular"):
-        # Display in grid layout (3 cards per row)
+        # Display results in a grid layout (3 cards per row)
         cols = st.columns(3)
         for idx, video in enumerate(results["regular"]):
             col = cols[idx % 3]

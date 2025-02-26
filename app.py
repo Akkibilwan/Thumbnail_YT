@@ -91,7 +91,7 @@ def classify_videos(videos):
     return regular_videos, shorts
 
 # -----------------------
-# YouTube API Functions
+# YouTube API Functions with Batching
 # -----------------------
 def youtube_search(query, published_after=None, finance_channels=None):
     youtube = build('youtube', 'v3', developerKey=st.secrets["YOUTUBE_API_KEY"])
@@ -123,26 +123,35 @@ def youtube_search(query, published_after=None, finance_channels=None):
 
 def get_video_details(video_ids):
     youtube = build('youtube', 'v3', developerKey=st.secrets["YOUTUBE_API_KEY"])
-    response = youtube.videos().list(
-        id=",".join(video_ids),
-        part="statistics,contentDetails,snippet"
-    ).execute()
-    return response.get("items", [])
+    all_details = []
+    # YouTube API supports max 50 IDs per call
+    for i in range(0, len(video_ids), 50):
+        batch_ids = video_ids[i:i+50]
+        response = youtube.videos().list(
+            id=",".join(batch_ids),
+            part="statistics,contentDetails,snippet"
+        ).execute()
+        all_details.extend(response.get("items", []))
+    return all_details
 
 def get_channel_details(channel_ids):
     youtube = build('youtube', 'v3', developerKey=st.secrets["YOUTUBE_API_KEY"])
-    response = youtube.channels().list(
-        id=",".join(channel_ids),
-        part="statistics"
-    ).execute()
-    return response.get("items", [])
+    all_channels = []
+    # Process in batches of 50
+    for i in range(0, len(channel_ids), 50):
+        batch_ids = channel_ids[i:i+50]
+        response = youtube.channels().list(
+            id=",".join(batch_ids),
+            part="statistics"
+        ).execute()
+        all_channels.extend(response.get("items", []))
+    return all_channels
 
 # -----------------------
 # Vision AI & OpenAI Functions
 # -----------------------
 def analyze_thumbnail(thumbnail_url):
     # --- Vision AI integration ---
-    # Use the Vision AI client ID from st.secrets (replace the URL with the actual endpoint)
     vision_client_id = st.secrets["VISION_AI_CLIENT_ID"]
     vision_api_url = "https://api.visionai.example.com/analyze"  # placeholder endpoint
     headers = {"Authorization": f"Bearer {vision_client_id}"}
@@ -210,7 +219,7 @@ def show_search_page():
                     "Humphrey Yang": "UCFBpVaKCC0ajGps1vf0AgBg",
                     "Brian Jung": "UCQglaVhGOBI0BR5S6IJnQPg",
                     "Nischa": "UCQpPo9BNwezg54N9hMFQp6Q",
-                    "Newmoney": "Newmoney",
+                    "Newmoney": "Newmoney",  # This will be filtered out
                     "I will teach you to be rich": "UC7ZddA__ewP3AtDefjl_tWg"
                 },
                 "India": {
@@ -277,8 +286,8 @@ def show_search_page():
                 return
 
             # Extract video and channel IDs from search results
-            video_ids = [item["id"]["videoId"] for item in results if "videoId" in item["id"]]
-            channel_ids = list(set([item["snippet"]["channelId"] for item in results]))
+            video_ids = [item["id"]["videoId"] for item in results if item["id"].get("videoId")]
+            channel_ids = list(set(item["snippet"]["channelId"] for item in results))
             
             # Batch API calls for details
             video_details = get_video_details(video_ids)

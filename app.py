@@ -189,13 +189,16 @@ def show_search_page():
         if uploaded_file is not None:
             try:
                 finance_data = json.load(uploaded_file)
-                # Expected JSON format: {"India": ["channelID1", "channelID2", ...], "USA": ["channelID3", ...]}
+                # If the JSON has a root key "finance", extract it.
+                if "finance" in finance_data:
+                    finance_data = finance_data["finance"]
+                # Extract channel IDs from the provided dictionary structure.
                 if finance_filter == "India":
-                    finance_channels = finance_data.get("India", [])
+                    finance_channels = list(finance_data.get("India", {}).values())
                 elif finance_filter == "USA":
-                    finance_channels = finance_data.get("USA", [])
+                    finance_channels = list(finance_data.get("USA", {}).values())
                 else:
-                    finance_channels = finance_data.get("India", []) + finance_data.get("USA", [])
+                    finance_channels = list(finance_data.get("India", {}).values()) + list(finance_data.get("USA", {}).values())
             except Exception:
                 st.error("Invalid JSON format for finance channels.")
 

@@ -7,6 +7,7 @@ import openai
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 import isodate
+import os
 
 # -----------------------
 # SQLite Functions: Caching & Sessions Logging
@@ -198,6 +199,9 @@ def main():
     st.set_page_config(layout="wide")
     init_db()
 
+    # List files in the working directory for debugging
+    st.write("Files in working directory:", os.listdir('.'))
+
     # Track which page the user is on using session state
     if "page" not in st.session_state:
         st.session_state.page = "search"
@@ -337,11 +341,12 @@ def show_search_page():
         # Display the search results
         display_results(st.session_state.results)
 
-    # Debug button: Show DB contents
+    # Debug button: Show DB contents and working directory
     if st.button("Show DB Debug Info"):
         cache_rows, session_rows = debug_db()
         st.write("Cache Table:", cache_rows)
         st.write("Sessions Table:", session_rows)
+        st.write("Files in working directory:", os.listdir('.'))
 
 def display_results(results):
     st.subheader("Regular Videos")

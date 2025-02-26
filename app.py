@@ -135,7 +135,7 @@ def youtube_search(query, published_after=None, finance_channels=None):
 def get_video_details(video_ids):
     youtube = build('youtube', 'v3', developerKey=st.secrets["YOUTUBE_API_KEY"])
     all_details = []
-    # YouTube API supports max 50 IDs per call
+    # Process in batches of 50
     for i in range(0, len(video_ids), 50):
         batch_ids = video_ids[i:i+50]
         response = youtube.videos().list(
@@ -230,7 +230,7 @@ def show_search_page():
                     "Humphrey Yang": "UCFBpVaKCC0ajGps1vf0AgBg",
                     "Brian Jung": "UCQglaVhGOBI0BR5S6IJnQPg",
                     "Nischa": "UCQpPo9BNwezg54N9hMFQp6Q",
-                    "Newmoney": "Newmoney",  # This will be filtered out
+                    "Newmoney": "Newmoney",  # Will be filtered out
                     "I will teach you to be rich": "UC7ZddA__ewP3AtDefjl_tWg"
                 },
                 "India": {

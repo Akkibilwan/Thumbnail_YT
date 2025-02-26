@@ -59,6 +59,17 @@ def log_session(key, data):
     conn.commit()
     conn.close()
 
+def debug_db():
+    """Retrieve and return the contents of the cache and sessions tables."""
+    conn = sqlite3.connect("cache.db")
+    c = conn.cursor()
+    c.execute("SELECT * FROM cache")
+    cache_rows = c.fetchall()
+    c.execute("SELECT * FROM sessions")
+    session_rows = c.fetchall()
+    conn.close()
+    return cache_rows, session_rows
+
 # -----------------------
 # Helper Functions
 # -----------------------
@@ -325,6 +336,12 @@ def show_search_page():
         
         # Display the search results
         display_results(st.session_state.results)
+
+    # Debug button: Show DB contents
+    if st.button("Show DB Debug Info"):
+        cache_rows, session_rows = debug_db()
+        st.write("Cache Table:", cache_rows)
+        st.write("Sessions Table:", session_rows)
 
 def display_results(results):
     st.subheader("Regular Videos")

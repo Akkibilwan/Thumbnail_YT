@@ -181,26 +181,48 @@ def show_search_page():
     # Choose search type
     search_type = st.radio("Choose Search Type", options=["Generic Search", "Finance Niche Search"])
 
-    # Finance niche additional filter
     finance_channels = None
     if search_type == "Finance Niche Search":
         finance_filter = st.selectbox("Select Finance Filter", options=["India", "USA", "Both"])
-        uploaded_file = st.file_uploader("Upload Finance Channels JSON", type=["json"])
-        if uploaded_file is not None:
-            try:
-                finance_data = json.load(uploaded_file)
-                # If the JSON has a root key "finance", extract it.
-                if "finance" in finance_data:
-                    finance_data = finance_data["finance"]
-                # Extract channel IDs from the provided dictionary structure.
-                if finance_filter == "India":
-                    finance_channels = list(finance_data.get("India", {}).values())
-                elif finance_filter == "USA":
-                    finance_channels = list(finance_data.get("USA", {}).values())
-                else:
-                    finance_channels = list(finance_data.get("India", {}).values()) + list(finance_data.get("USA", {}).values())
-            except Exception:
-                st.error("Invalid JSON format for finance channels.")
+        # Integrated JSON data for finance channels
+        finance_data = {
+            "finance": {
+                "USA": {
+                    "Graham Stephan": "UCV6KDgJskWaEckne5aPA0aQ",
+                    "Mark Tilbury": "UCxgAuX3XZROujMmGphN_scA",
+                    "Andrei Jikh": "UCGy7SkBjcIAgTiwkXEtPnYg",
+                    "Humphrey Yang": "UCFBpVaKCC0ajGps1vf0AgBg",
+                    "Brian Jung": "UCQglaVhGOBI0BR5S6IJnQPg",
+                    "Nischa": "UCQpPo9BNwezg54N9hMFQp6Q",
+                    "Newmoney": "Newmoney",
+                    "I will teach you to be rich": "UC7ZddA__ewP3AtDefjl_tWg"
+                },
+                "India": {
+                    "Pranjal Kamra": "UCwAdQUuPT6laN-AQR17fe1g",
+                    "Ankur Warikoo": "UCHYubNqqsWGTN2SF-y8jPmQ",
+                    "Shashank Udupa": "UCdUEJABvX8XKu3HyDSczqhA",
+                    "Finance with Sharan": "UCwVEhEzsjLym_u1he4XWFkg",
+                    "Akshat Srivastava": "UCqW8jxh4tH1Z1sWPbkGWL4g",
+                    "Labour Law Advisor": "UCVOTBwF0vnSxMRIbfSE_K_g",
+                    "Udayan Adhye": "UCLQOtbB1COQwjcCEPB2pa8w",
+                    "Sanjay Kathuria": "UCTMr5SnqHtCM2lMAI31gtFA",
+                    "Financially free": "UCkGjGT2B7LoDyL2T4pHsUqw",
+                    "Powerup Money": "UC_eLanNOt5ZiKkZA2Fay8SA",
+                    "Shankar Nath": "UCtnItzU7q_bA1eoEBjqcVrw",
+                    "Wint Weath": "UCggPd3Vf9ooG2r4I_ZNWBzA",
+                    "Invest aaj for Kal": "UCWHCXSKASuSzao_pplQ7SPw",
+                    "Rahul Jain": "UC2MU9phoTYy5sigZCkrvwiw"
+                }
+            }
+        }
+        # Extract the finance channels using the provided JSON structure.
+        finance_data = finance_data["finance"]
+        if finance_filter == "India":
+            finance_channels = list(finance_data.get("India", {}).values())
+        elif finance_filter == "USA":
+            finance_channels = list(finance_data.get("USA", {}).values())
+        else:
+            finance_channels = list(finance_data.get("India", {}).values()) + list(finance_data.get("USA", {}).values())
 
     keyword = st.text_input("Enter Keywords or YouTube URL")
 
@@ -248,7 +270,6 @@ def show_search_page():
             # Merge details and calculate outlier score for each video
             processed_videos = []
             for video in video_details:
-                vid_id = video["id"]
                 snippet = video.get("snippet", {})
                 channel_id = snippet.get("channelId")
                 stats = video.get("statistics", {})
